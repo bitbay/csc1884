@@ -1,0 +1,165 @@
+<?xml version="1.0"?>
+<project name="CSC1884" basedir="." default="help">
+    <property name="src" value="src"/>
+    <property name="assets.dir" value="assets"/>
+    <property name="assets.repotemplate" value="repo-template.zip"/>
+    <property name="build.dir" value="build"/>
+    <property name="test.dir" location="build/test"/>
+	<property name="test.data.dir" location="${test.dir}/data"/>
+	<property name="test.reports.dir" location="${test.dir}/reports"/>
+    <property name="lib.dir" value="lib"/>
+    <property name="dist.dir" value="dist"/>
+    <property name="junit.jar" value="${lib.dir}/junit-4.10.jar"/>
+    <property name="jar.file" value="${ant.project.name}.jar"/>
+    
+    <!-- Prints the help message-->
+	<target name="help"
+			description="Prints this buildfiles help message">
+		<echo>You can use the following targets:</echo>
+		<echo></echo>
+		<echo>  help         : (default) Prints this message </echo>
+		<echo></echo>
+		<echo>  all          : Cleans, compiles, and packages application</echo>
+		<echo>  clean        : Deletes work directories</echo>
+		<echo>  compile      : Compiles all source into classes</echo>
+		<echo>  dist         : Packages artifacts into a deployable JAR</echo>
+		<echo></echo>
+		<echo>  test-compile : Compiles all test sources into classes</echo>
+		<echo>  test-run     : Compiles and runs all test classes/cases</echo>
+		<echo>  test-all     : Compiles, runs and creates report for all tests</echo>
+		<echo></echo>
+		<echo>For example, to clean, compile, and package all at once, run:</echo>
+		<echo>prompt> ant all</echo>
+		<echo></echo>
+		<echo>To run all tests included, run:</echo>
+		<echo>prompt> ant test-run</echo>
+	</target>
+	
+	<!-- Cleans, compiles, and packages application -->
+	<target name="all"
+			depends="dist"
+			description="Cleans, compiles, and packages application"/>
+	
+	<!-- Deletes work directories -->
+	<target name="clean"
+			description="Deletes work directories">
+        <delete dir="${build.dir}"/>
+        <delete dir="${dist.dir}"/>
+    </target>
+ 
+ 	<!-- Creates work directories -->
+    <target name="create"
+    		depends="clean"
+    		description="Creates work directories">
+        <mkdir dir="${build.dir}/classes"/>
+    </target>
+    
+    <!-- CLASSPATH for the application (dependencies, third-party libraries) -->
+    <path id="compile.classpath">
+        <fileset dir="${lib.dir}">
+            <include name="*.jar"/>
+        </fileset>
+    </path>
+    
+    <!-- Compiles source into classes in the build directory -->
+    <target name="compile"
+    		depends="create"
+    		description="Compiles source into classes in the build directory">
+        <javac destdir="${build.dir}/classes" includeantruntime="true">
+            <src path="${src}/main"/>
+            <classpath>
+            	<path refid="compile.classpath"/>
+            </classpath>
+            <!--compilerarg value="-Xlint:deprecation"/-->
+        </javac>
+    </target>
+	
+	<!-- Creates the jar archive -->
+    <target name="dist"
+    		depends="compile"
+    		description="Creates the jar archive">
+        <mkdir dir="${dist.dir}"/>
+    	<!-- Copy third-party libraries into distribution folder -->
+    	<copy todir="${dist.dir}/lib">
+    		<fileset dir="${lib.dir}">
+    			<exclude name="junit-4.10.jar"/>
+    		</fileset>
+  		</copy>
+  		
+  		<!-- Copy assets into distribution folder -->
+  		<copy file="${assets.dir}/${assets.repotemplate}"
+  			tofile="${dist.dir}/assets/${assets.repotemplate}"/>
+  		
+		<!-- As of ANT version 1.7 create CLASSPATH for manifest file -->
+		<manifestclasspath property="lib.list" jarfile="${jar.file}">
+			<classpath refid="compile.classpath" />
+    	</manifestclasspath>
+    	
+    	<!-- Compile jar -->
+        <jar destfile="${dist.dir}/${jar.file}">
+	        <!-- include everything in the bin folder -->
+            <fileset dir="${build.dir}/classes" />
+			<manifest>
+				<attribute name="Main-Class" value="Main"/>
+				<!-- use the generated libs path and the current dir -->
+				<attribute name="Class-Path" value="${lib.list}" />
+			</manifest>
+        </jar>
+    </target>
+    
+    <!-- CLASSPATH for the test runs -->
+	<path id="test.classpath">
+		<path refid="compile.classpath"/>
+		<pathelement location="${junit.jar}"/>
+		<pathelement location="${build.dir}/classes"/>
+		<pathelement location="${test.dir}"/>
+	</path>
+
+	<!-- Cleanup/create folders for test compile -->
+	<target name="test-init"
+			description="Create the folders for test compile">
+		<mkdir dir="${test.dir}"/>
+		<delete dir="${test.data.dir}"/>
+		<delete dir="${test.reports.dir}"/>
+		<mkdir dir="${test.data.dir}"/>
+		<mkdir dir="${test.reports.dir}"/>
+	</target>
+	
+	<!-- Compile test source into classes -->
+	<target name="test-compile"
+			depends="compile,test-init"
+			description="Compiles test source">
+		<javac destdir="${test.dir}"
+			debug="${build.debug}"
+			includeAntRuntime="true"
+			srcdir="${src}/test">
+			<classpath refid="test.classpath"/>
+		</javac>
+	</target>
+	
+	<!-- Run the test cases/classes -->
+	<target name="test-run"
+			depends="test-compile"
+			description="Run tests">
+		<junit printsummary="true" haltonfailure="true" showoutput="false">
+			<classpath refid="test.classpath"/>
+			<formatter type="brief" usefile="true"/>
+			<formatter type="xml"/>
+			<batchtest todir="${test.data.dir}">
+				<fileset dir="${test.dir}" includes="**/*Test.class"/>
+			</batchtest>
+		</junit>
+	</target>
+	
+	<!-- Compiles, runs and creates reports for tests -->
+	<target name="test-all"
+			depends="test-run"
+			description="Create reports of tests runned">
+		<junitreport todir="${test.data.dir}">
+			<fileset dir="${test.data.dir}">
+				<include name="TEST-*.xml"/>
+			</fileset>
+			<report format="frames" todir="${test.reports.dir}"/>
+		</junitreport>
+	</target>
+</project>
